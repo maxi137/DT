@@ -1,10 +1,6 @@
 (function (Scratch) {
   'use strict';
 
-  if (!Scratch || !Scratch.extensions || !Scratch.extensions.unsandboxed) {
-    throw new Error('NGBSN Delta Time necesita ejecutarse en modo unsandboxed.');
-  }
-
   class NGBSNDeltaTime {
     constructor() {
       this.lastTime = performance.now();
@@ -15,15 +11,9 @@
       this.totalTime = 0;
       this.samples = [];
       this.maxSamples = 30;
-      this.running = true;
-      this.boundUpdate = this.update.bind(this);
-      this.runtime = Scratch.vm.runtime;
-      this.runtime.on('AFTER_EXECUTE', this.boundUpdate);
     }
 
     update() {
-      if (!this.running) return;
-
       const now = performance.now();
       const elapsed = (now - this.lastTime) / 1000;
       this.lastTime = now;
@@ -56,9 +46,24 @@
         color3: '#16477F',
         blocks: [
           {
+            opcode: 'update',
+            blockType: Scratch.BlockType.COMMAND,
+            text: 'actualizar medición'
+          },
+          {
             opcode: 'getFPS',
             blockType: Scratch.BlockType.REPORTER,
             text: 'fps'
+          },
+          {
+            opcode: 'getFPS',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'FPS'
+          },
+          {
+            opcode: 'getFPS',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'Fps'
           },
           {
             opcode: 'getDT',
@@ -66,9 +71,24 @@
             text: 'dt'
           },
           {
+            opcode: 'getDT',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'DT'
+          },
+          {
+            opcode: 'getDT',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'Dt'
+          },
+          {
+            opcode: 'getDT',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'dT'
+          },
+          {
             opcode: 'getDTMilliseconds',
             blockType: Scratch.BlockType.REPORTER,
-            text: 'dt ms'
+            text: 'dt en milisegundos'
           },
           {
             opcode: 'getSmoothedFPS',
