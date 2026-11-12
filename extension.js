@@ -1,99 +1,124 @@
 (function (Scratch) {
   'use strict';
 
+  if (!Scratch || !Scratch.extensions || !Scratch.BlockType) {
+    throw new Error('NGBSN Delta Time: entorno de extensiones no compatible.');
+  }
+
   class NGBSNDeltaTime {
     constructor() {
-      this.lastTime = performance.now();
+      this.lastSampleTime = performance.now();
+      this.lastReadTime = this.lastSampleTime;
       this.dt = 0;
       this.fps = 0;
       this.smoothedFPS = 0;
+      this.minFPS = 0;
+      this.maxFPS = 0;
+      this.minDT = 0;
+      this.maxDT = 0;
       this.frameCount = 0;
       this.totalTime = 0;
       this.samples = [];
-      this.maxSamples = 30;
+      this.maxSamples = 60;
+      this.sampleWindowMs = 4;
     }
 
-    update() {
+    updateMeasurement() {
       const now = performance.now();
-      const elapsed = (now - this.lastTime) / 1000;
-      this.lastTime = now;
+      const sinceLastRead = now - this.lastReadTime;
+      this.lastReadTime = now;
 
-      if (!Number.isFinite(elapsed) || elapsed <= 0) return;
+      if (sinceLastRead < this.sampleWindowMs) return;
 
-      this.dt = elapsed;
-      this.fps = 1 / elapsed;
+      const elapsedMs = now - this.lastSampleTime;
+      this.lastSampleTime = now;
 
-      this.samples.push(this.fps);
+      if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return;
+
+      const elapsedSeconds = elapsedMs / 1000;
+      const currentFPS = 1 / elapsedSeconds;
+
+      this.dt = elapsedSeconds;
+      this.fps = currentFPS;
+      this.frameCount++;
+      this.totalTime += elapsedSeconds;
+
+      this.samples.push(currentFPS);
 
       if (this.samples.length > this.maxSamples) {
         this.samples.shift();
       }
 
-      this.smoothedFPS =
-        this.samples.reduce((sum, value) => sum + value, 0) /
-        this.samples.length;
+      let sum = 0;
 
-      this.frameCount++;
-      this.totalTime += elapsed;
+      for (let i = 0; i < this.samples.length; i++) {
+        sum += this.samples[i];
+      }
+
+      this.smoothedFPS = this.samples.length
+        ? sum / this.samples.length
+        : 0;
+
+      if (this.frameCount === 1) {
+        this.minFPS = currentFPS;
+        this.maxFPS = currentFPS;
+        this.minDT = elapsedSeconds;
+        this.maxDT = elapsedSeconds;
+      } else {
+        this.minFPS = Math.min(this.minFPS, currentFPS);
+        this.maxFPS = Math.max(this.maxFPS, currentFPS);
+        this.minDT = Math.min(this.minDT, elapsedSeconds);
+        this.maxDT = Math.max(this.maxDT, elapsedSeconds);
+      }
     }
 
     getInfo() {
       return {
-        id: 'ngbsndeltatime',
+        id: 'dtbyxeroname',
         name: 'NGBSN Delta Time',
         color1: '#2878D0',
         color2: '#1E5FA8',
         color3: '#16477F',
         blocks: [
           {
-            opcode: 'update',
-            blockType: Scratch.BlockType.COMMAND,
-            text: 'actualizar medición'
-          },
-          {
-            opcode: 'getFPS',
+            opcode: 'dtbyxeroname_dt',
             blockType: Scratch.BlockType.REPORTER,
-            text: 'fps'
+            text: 'Delta Time'
           },
           {
-            opcode: 'getFPS',
+            opcode: 'dtbyxeroname_fps',
             blockType: Scratch.BlockType.REPORTER,
             text: 'FPS'
           },
           {
-            opcode: 'getFPS',
-            blockType: Scratch.BlockType.REPORTER,
-            text: 'Fps'
-          },
-          {
-            opcode: 'getDT',
-            blockType: Scratch.BlockType.REPORTER,
-            text: 'dt'
-          },
-          {
-            opcode: 'getDT',
-            blockType: Scratch.BlockType.REPORTER,
-            text: 'DT'
-          },
-          {
-            opcode: 'getDT',
-            blockType: Scratch.BlockType.REPORTER,
-            text: 'Dt'
-          },
-          {
-            opcode: 'getDT',
-            blockType: Scratch.BlockType.REPORTER,
-            text: 'dT'
-          },
-          {
             opcode: 'getDTMilliseconds',
             blockType: Scratch.BlockType.REPORTER,
-            text: 'dt en milisegundos'
+            text: 'Delta Time en ms'
           },
           {
             opcode: 'getSmoothedFPS',
             blockType: Scratch.BlockType.REPORTER,
-            text: 'fps suavizados'
+            text: 'FPS promedio'
+          },
+          {
+            opcode: 'getMinFPS',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'FPS mínimo'
+          },
+          {
+            opcode: 'getMaxFPS',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'FPS máximo'
+          },
+          {
+            opcode: 'getMinDT',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'Delta Time mínimo en ms'
+          },
+          {
+            opcode: 'getMaxDT',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'Delta Time máximo en ms'
           },
           {
             opcode: 'getFrameCount',
@@ -103,46 +128,79 @@
           {
             opcode: 'getTotalTime',
             blockType: Scratch.BlockType.REPORTER,
-            text: 'tiempo total medido'
+            text: 'tiempo total medido en segundos'
           },
           {
-            opcode: 'reset',
+            opcode: 'resetMeasurements',
             blockType: Scratch.BlockType.COMMAND,
-            text: 'reiniciar medición'
+            text: 'reiniciar mediciones'
           }
         ]
       };
     }
 
-    getFPS() {
-      return this.fps;
-    }
-
-    getDT() {
+    dtbyxeroname_dt() {
+      this.updateMeasurement();
       return this.dt;
     }
 
+    dtbyxeroname_fps() {
+      this.updateMeasurement();
+      return this.fps;
+    }
+
     getDTMilliseconds() {
+      this.updateMeasurement();
       return this.dt * 1000;
     }
 
     getSmoothedFPS() {
+      this.updateMeasurement();
       return this.smoothedFPS;
     }
 
+    getMinFPS() {
+      this.updateMeasurement();
+      return this.minFPS;
+    }
+
+    getMaxFPS() {
+      this.updateMeasurement();
+      return this.maxFPS;
+    }
+
+    getMinDT() {
+      this.updateMeasurement();
+      return this.minDT * 1000;
+    }
+
+    getMaxDT() {
+      this.updateMeasurement();
+      return this.maxDT * 1000;
+    }
+
     getFrameCount() {
+      this.updateMeasurement();
       return this.frameCount;
     }
 
     getTotalTime() {
+      this.updateMeasurement();
       return this.totalTime;
     }
 
-    reset() {
-      this.lastTime = performance.now();
+    resetMeasurements() {
+      const now = performance.now();
+
+      this.lastSampleTime = now;
+      this.lastReadTime = now;
       this.dt = 0;
       this.fps = 0;
       this.smoothedFPS = 0;
+      this.minFPS = 0;
+      this.maxFPS = 0;
+      this.minDT = 0;
+      this.maxDT = 0;
       this.frameCount = 0;
       this.totalTime = 0;
       this.samples = [];
